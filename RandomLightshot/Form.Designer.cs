@@ -32,7 +32,9 @@ namespace RandomLightshot
             this.components = new System.ComponentModel.Container();
             this.image = new System.Windows.Forms.PictureBox();
             this.contextMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.copyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveAsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.openLinkToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.image)).BeginInit();
             this.contextMenuStrip.SuspendLayout();
             this.SuspendLayout();
@@ -47,18 +49,32 @@ namespace RandomLightshot
             this.image.TabIndex = 0;
             this.image.TabStop = false;
             // 
-            // contextMenuStrip1
+            // contextMenuStrip
             // 
             this.contextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.saveAsToolStripMenuItem});
+            this.copyToolStripMenuItem,
+            this.saveAsToolStripMenuItem,
+            this.openLinkToolStripMenuItem});
             this.contextMenuStrip.Name = "contextMenuStrip1";
-            this.contextMenuStrip.Size = new System.Drawing.Size(181, 48);
+            this.contextMenuStrip.Size = new System.Drawing.Size(181, 92);
+            // 
+            // copyToolStripMenuItem
+            // 
+            this.copyToolStripMenuItem.Name = "copyToolStripMenuItem";
+            this.copyToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.copyToolStripMenuItem.Text = "Copy";
             // 
             // saveAsToolStripMenuItem
             // 
             this.saveAsToolStripMenuItem.Name = "saveAsToolStripMenuItem";
             this.saveAsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.saveAsToolStripMenuItem.Text = "Save As";
+            // 
+            // openLinkToolStripMenuItem
+            // 
+            this.openLinkToolStripMenuItem.Name = "openLinkToolStripMenuItem";
+            this.openLinkToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.openLinkToolStripMenuItem.Text = "Open Link";
             // 
             // Form
             // 
@@ -79,6 +95,8 @@ namespace RandomLightshot
         public System.Windows.Forms.PictureBox image;
         public System.Windows.Forms.ContextMenuStrip contextMenuStrip;
         public System.Windows.Forms.ToolStripMenuItem saveAsToolStripMenuItem;
+        public System.Windows.Forms.ToolStripMenuItem copyToolStripMenuItem;
+        public System.Windows.Forms.ToolStripMenuItem openLinkToolStripMenuItem;
     }
 }
 

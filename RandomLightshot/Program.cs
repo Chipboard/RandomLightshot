@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows.Forms;
 
 using HtmlAgilityPack;
@@ -13,7 +17,9 @@ namespace RandomLightshot
     {
         static List<ImageHistory> imageHistory = new List<ImageHistory>();
         static int historyLocation = 0;
-        static int maxHistory = 500;
+        static int maxHistory = 501;
+
+        static bool formClosed;
 
         static Form form;
 
@@ -29,45 +35,127 @@ namespace RandomLightshot
             form.image.MouseClick += Image_MouseClick;
 
             form.saveAsToolStripMenuItem.Click += Image_SaveAs;
+            form.copyToolStripMenuItem.Click += Image_Copy;
+            form.openLinkToolStripMenuItem.Click += Image_OpenLink;
 
-            Form_KeyDown(null, new KeyEventArgs(Keys.Space));
+            form.FormClosed += Form_Closed;
+
+            for (int i = 0; i < 4; i++)
+            {
+                Thread updateThread = new Thread(Update);
+                updateThread.Name = "Update Thread " + i;
+                updateThread.Start();
+
+                Console.Write("Begginning search thread " + i);
+            }
 
             Application.Run(form);
         }
 
+        private static void Image_OpenLink(object sender, EventArgs e)
+        {
+            OpenUrl(imageHistory[historyLocation].link);
+        }
+
+        static void OpenUrl(string url)
+        {
+            try
+            {
+                Process.Start(url);
+            }
+            catch
+            {
+                // hack because of this: https://github.com/dotnet/corefx/issues/10361
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    url = url.Replace("&", "^&");
+                    Process.Start(new ProcessStartInfo("cmd", $"/c start {url}") { CreateNoWindow = true });
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    Process.Start("xdg-open", url);
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    Process.Start("open", url);
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+
+        private static void Image_Copy(object sender, EventArgs e)
+        {
+            if(form.image.Image != null)
+                Clipboard.SetImage(form.image.Image);
+        }
+
+        private static void Form_Closed(object sender, FormClosedEventArgs e)
+        {
+            formClosed = true;
+        }
+
+        static void Update()
+        {
+            while (!formClosed)
+            {
+                Thread.Sleep(random.Next(10, 100));
+
+                if (imageHistory.Count + 1 >= maxHistory && historyLocation >= maxHistory / 2)
+                {
+                    Console.WriteLine("getIsMax");
+                    GetImage();
+                }
+                else if (imageHistory.Count + 1 < maxHistory)
+                {
+                    Console.WriteLine("getIsBuffer: " + (imageHistory.Count + 1) + " | " + maxHistory);
+                    GetImage();
+                }
+            }
+        }
+
         private static void Image_SaveAs(object sender, EventArgs e)
         {
-            System.Drawing.Image image = form.image.Image;
-            string extension = Path.GetExtension(imageHistory[historyLocation].imageLink);
+            if (form.image.Image == null)
+                return;
+
+            Image image = form.image.Image;
+            string extension = new ImageFormatConverter().ConvertToString(image.RawFormat).ToLower();
 
             SaveFileDialog saveDialog = new SaveFileDialog();
             saveDialog.Filter = extension + " Image|*" + extension;
+            saveDialog.FileName = image.HorizontalResolution + " x " + image.VerticalResolution + "." + extension;
             saveDialog.Title = "Save Image As";
             saveDialog.ShowDialog();
 
             if (saveDialog.FileName != "")
             {
                 FileStream fs = (FileStream)saveDialog.OpenFile();
-                image.Save(fs, System.Drawing.Imaging.ImageFormat.Jpeg);
+                image.Save(fs, ImageFormat.Jpeg);
                 fs.Close();
             }
         }
 
         private static void Image_MouseClick(object sender, MouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Right)
+            if (e.Button == MouseButtons.Right && form.image.Image != null)
                 form.contextMenuStrip.Show(form, e.Location);
         }
 
-        private static void Form_KeyDown(object sender, KeyEventArgs e)
+        static bool GetImage()
         {
             random = new Random(random.Next(0, int.MaxValue / random.Next(1, 3)));
 
-            if(e.KeyCode == Keys.Space || e.KeyCode == Keys.Right)
+            bool foundImage = false;
+            string link = "";
+
+            switch (random.Next(0,2))
             {
-                if (historyLocation >= imageHistory.Count-1)
-                {
-                    string link = "https://prnt.sc/" + RandomString(6);
+                //Lightshot
+                case 0:
+                    link = "https://prnt.sc/" + RandomString(6, lighsthotCharSet);
 
                     HtmlWeb web = new HtmlWeb();
                     HtmlAgilityPack.HtmlDocument doc = web.Load(link);
@@ -79,18 +167,13 @@ namespace RandomLightshot
                                   //&& node.Attributes["class"].Value.StartsWith("img_")
                                   select node).ToList();
 
-                    bool foundImage = false;
-
                     foreach (HtmlNode node in imageNodes)
                     {
                         foreach (var attrib in node.GetAttributes())
                         {
                             if (attrib.Value.Contains("imgur") || attrib.Value.Contains("image.prntscr"))
                             {
-                                form.image.Image = DownloadImageFromUrl(attrib.Value);
-                                imageHistory.Add(new ImageHistory(link, attrib.Value, form.image.Image));
-                                historyLocation = imageHistory.Count-1;
-
+                                imageHistory.Add(new ImageHistory(link, attrib.Value, DownloadImageFromUrl(attrib.Value)));
                                 foundImage = true;
                             }
 
@@ -98,23 +181,46 @@ namespace RandomLightshot
                         }
                     }
 
-                    if (!foundImage)
+                    break;
+
+                    //Imgur
+                case 1:
+                    link = "http://i.imgur.com/" + RandomString(random.Next(4,7), imgurCharSet) + ".jpg";
+
+                    Image imgurImage = DownloadImageFromUrl(link);
+
+                    int tries = 0;
+                    while (imgurImage == null)
                     {
-                        Form_KeyDown(sender, e);
-                        return;
+                        tries++;
+
+                        link = "http://i.imgur.com/" + RandomString(random.Next(4, 7), imgurCharSet) + ".jpg";
+                        imgurImage = DownloadImageFromUrl(link);
+
+                        if (tries > 10)
+                            break;
                     }
+                    Console.WriteLine(link);
+                    imageHistory.Add(new ImageHistory(link, link, DownloadImageFromUrl(link)));
+                    foundImage = true;
 
-                    while(imageHistory.Count >= maxHistory)
-                    {
-                        imageHistory.RemoveAt(0);
+                    break;
+            }
 
-                        if (historyLocation > imageHistory.Count - 1)
-                            historyLocation = imageHistory.Count - 1;
-                    }
+            while (imageHistory.Count >= maxHistory)
+            {
+                imageHistory.RemoveAt(0);
+                historyLocation--;
+            }
 
-                    SetFormTitle(imageHistory[historyLocation].link);
-                }
-                else
+            return foundImage;
+        }
+
+        private static void Form_KeyDown(object sender, KeyEventArgs e)
+        {
+            if(e.KeyCode == Keys.Space || e.KeyCode == Keys.Right)
+            {
+                if (historyLocation < imageHistory.Count-1)
                 {
                     historyLocation++;
 
@@ -127,6 +233,9 @@ namespace RandomLightshot
 
                     form.image.Image = imageHistory[historyLocation].image;
                     SetFormTitle(imageHistory[historyLocation].link);
+                } else
+                {
+                    historyLocation = imageHistory.Count - 1;
                 }
             }
 
@@ -148,21 +257,24 @@ namespace RandomLightshot
             form.Text = newTitle;
         }
 
-        static System.Drawing.Image DownloadImageFromUrl(string imageUrl)
+        static Image DownloadImageFromUrl(string imageUrl)
         {
-            System.Drawing.Image image;
+            Image image;
 
             try
             {
-                System.Net.HttpWebRequest webRequest = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create(imageUrl);
+                System.Net.HttpWebRequest webRequest = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(imageUrl);
                 webRequest.AllowWriteStreamBuffering = true;
                 webRequest.Timeout = 30000;
 
                 System.Net.WebResponse webResponse = webRequest.GetResponse();
 
-                System.IO.Stream stream = webResponse.GetResponseStream();
+                Stream stream = webResponse.GetResponseStream();
 
-                image = System.Drawing.Image.FromStream(stream);
+                image = Image.FromStream(stream);
+
+                if (image.Width == 161)
+                    image = null;
 
                 webResponse.Close();
             }
@@ -175,10 +287,11 @@ namespace RandomLightshot
         }
 
         private static Random random = new Random();
+        const string lighsthotCharSet = "abcdefghijklmnopqrstuvwxyz0123456789";
+        const string imgurCharSet = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789";
 
-        public static string RandomString(int length)
+        public static string RandomString(int length, string chars)
         {
-            const string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
             return new string(Enumerable.Repeat(chars, length)
                 .Select(s => s[random.Next(s.Length)]).ToArray());
         }
@@ -187,9 +300,9 @@ namespace RandomLightshot
         {
             public string link;
             public string imageLink;
-            public System.Drawing.Image image;
+            public Image image;
 
-            public ImageHistory(string url, string imageUrl, System.Drawing.Image img)
+            public ImageHistory(string url, string imageUrl, Image img)
             {
                 link = url;
                 image = img;
