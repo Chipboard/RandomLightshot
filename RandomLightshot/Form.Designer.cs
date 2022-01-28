@@ -29,8 +29,12 @@ namespace RandomLightshot
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.image = new System.Windows.Forms.PictureBox();
+            this.contextMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.saveAsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.image)).BeginInit();
+            this.contextMenuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
             // image
@@ -43,6 +47,19 @@ namespace RandomLightshot
             this.image.TabIndex = 0;
             this.image.TabStop = false;
             // 
+            // contextMenuStrip1
+            // 
+            this.contextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.saveAsToolStripMenuItem});
+            this.contextMenuStrip.Name = "contextMenuStrip1";
+            this.contextMenuStrip.Size = new System.Drawing.Size(181, 48);
+            // 
+            // saveAsToolStripMenuItem
+            // 
+            this.saveAsToolStripMenuItem.Name = "saveAsToolStripMenuItem";
+            this.saveAsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.saveAsToolStripMenuItem.Text = "Save As";
+            // 
             // Form
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -52,6 +69,7 @@ namespace RandomLightshot
             this.Name = "Form";
             this.Text = "Random Lightshot";
             ((System.ComponentModel.ISupportInitialize)(this.image)).EndInit();
+            this.contextMenuStrip.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -59,6 +77,8 @@ namespace RandomLightshot
         #endregion
 
         public System.Windows.Forms.PictureBox image;
+        public System.Windows.Forms.ContextMenuStrip contextMenuStrip;
+        public System.Windows.Forms.ToolStripMenuItem saveAsToolStripMenuItem;
     }
 }
 

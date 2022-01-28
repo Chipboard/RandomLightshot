@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -12,6 +13,7 @@ namespace RandomLightshot
     {
         static List<ImageHistory> imageHistory = new List<ImageHistory>();
         static int historyLocation = 0;
+        static int maxHistory = 500;
 
         static Form form;
 
@@ -24,13 +26,42 @@ namespace RandomLightshot
             form = new Form();
 
             form.KeyDown += Form_KeyDown;
+            form.image.MouseClick += Image_MouseClick;
+
+            form.saveAsToolStripMenuItem.Click += Image_SaveAs;
+
+            Form_KeyDown(null, new KeyEventArgs(Keys.Space));
 
             Application.Run(form);
         }
 
+        private static void Image_SaveAs(object sender, EventArgs e)
+        {
+            System.Drawing.Image image = form.image.Image;
+            string extension = Path.GetExtension(imageHistory[historyLocation].imageLink);
+
+            SaveFileDialog saveDialog = new SaveFileDialog();
+            saveDialog.Filter = extension + " Image|*" + extension;
+            saveDialog.Title = "Save Image As";
+            saveDialog.ShowDialog();
+
+            if (saveDialog.FileName != "")
+            {
+                FileStream fs = (FileStream)saveDialog.OpenFile();
+                image.Save(fs, System.Drawing.Imaging.ImageFormat.Jpeg);
+                fs.Close();
+            }
+        }
+
+        private static void Image_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+                form.contextMenuStrip.Show(form, e.Location);
+        }
+
         private static void Form_KeyDown(object sender, KeyEventArgs e)
         {
-            random = new Random(DateTime.Now.Second + DateTime.Now.Millisecond + DateTime.Now.Day + DateTime.Now.Month + DateTime.Now.Year + DateTime.Now.DayOfYear);
+            random = new Random(random.Next(0, int.MaxValue / random.Next(1, 3)));
 
             if(e.KeyCode == Keys.Space || e.KeyCode == Keys.Right)
             {
@@ -57,7 +88,7 @@ namespace RandomLightshot
                             if (attrib.Value.Contains("imgur") || attrib.Value.Contains("image.prntscr"))
                             {
                                 form.image.Image = DownloadImageFromUrl(attrib.Value);
-                                imageHistory.Add(new ImageHistory(link, form.image.Image));
+                                imageHistory.Add(new ImageHistory(link, attrib.Value, form.image.Image));
                                 historyLocation = imageHistory.Count-1;
 
                                 foundImage = true;
@@ -67,10 +98,21 @@ namespace RandomLightshot
                         }
                     }
 
-                    SetFormTitle(imageHistory[historyLocation].link);
-
                     if (!foundImage)
+                    {
                         Form_KeyDown(sender, e);
+                        return;
+                    }
+
+                    while(imageHistory.Count >= maxHistory)
+                    {
+                        imageHistory.RemoveAt(0);
+
+                        if (historyLocation > imageHistory.Count - 1)
+                            historyLocation = imageHistory.Count - 1;
+                    }
+
+                    SetFormTitle(imageHistory[historyLocation].link);
                 }
                 else
                 {
@@ -88,7 +130,7 @@ namespace RandomLightshot
                 }
             }
 
-            if(e.KeyCode == Keys.Left)
+            if(e.KeyCode == Keys.Left || e.KeyCode == Keys.ControlKey)
             {
                 if(historyLocation > 0 && imageHistory.Count > 0)
                 {
@@ -144,12 +186,14 @@ namespace RandomLightshot
         struct ImageHistory
         {
             public string link;
+            public string imageLink;
             public System.Drawing.Image image;
 
-            public ImageHistory(string url, System.Drawing.Image img)
+            public ImageHistory(string url, string imageUrl, System.Drawing.Image img)
             {
                 link = url;
                 image = img;
+                imageLink = imageUrl;
             }
         }
     }
