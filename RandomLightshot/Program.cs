@@ -126,12 +126,13 @@ namespace RandomLightshot
 
             SaveFileDialog saveDialog = new SaveFileDialog();
             saveDialog.Filter = extension + " Image|*" + extension;
-            saveDialog.FileName = image.HorizontalResolution + " x " + image.VerticalResolution + "." + extension;
+            saveDialog.FileName = image.HorizontalResolution + " x " + image.VerticalResolution;
             saveDialog.Title = "Save Image As";
             saveDialog.ShowDialog();
 
             if (saveDialog.FileName != "")
             {
+                saveDialog.FileName = saveDialog.FileName + "." + extension;
                 FileStream fs = (FileStream)saveDialog.OpenFile();
                 image.Save(fs, ImageFormat.Jpeg);
                 fs.Close();
